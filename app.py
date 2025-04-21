@@ -1,13 +1,15 @@
+from flask import Flask
 import requests
-import time
 import smtplib
 import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
+app = Flask(__name__)
 
 # ====== CONFIG FROM ENV ======
 DOMAIN = "innerspacegroup.com"
@@ -16,11 +18,11 @@ GODADDY_API_SECRET = os.getenv("GODADDY_API_SECRET")
 EMAIL_SENDER = os.getenv("EMAIL_SENDER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
-CHECK_INTERVAL_SECONDS = 600  # 10 minutes
 
 headers = {
     "Authorization": f"sso-key {GODADDY_API_KEY}:{GODADDY_API_SECRET}"
 }
+
 
 def is_domain_available(domain):
     url = f"https://api.godaddy.com/v1/domains/available?domain={domain}&checkType=FAST"
@@ -31,6 +33,7 @@ def is_domain_available(domain):
     else:
         print(f"⚠️ GoDaddy API error: {response.status_code} - {response.text}")
         return False
+
 
 def send_email(domain):
     subject = f"Hi! Looks like {domain} is finally available 🔓"
@@ -83,18 +86,22 @@ Cheers,
     print(f"📩 Email sent to {EMAIL_RECEIVER}")
 
 
-# ====== MAIN LOOP ======
-print(f"🔁 Watching domain: {DOMAIN}")
-while True:
+@app.route("/")
+def home():
+    return "✅ Domain Watcher is live. Visit /check to manually check domain status."
+
+
+@app.route("/check")
+def check_domain():
     try:
         if is_domain_available(DOMAIN):
-
-            print(f"✅ Domain available: {DOMAIN}")
             send_email(DOMAIN)
-            break
+            return f"✅ {DOMAIN} is available! Email sent."
         else:
-            print(f"❌ Still taken: {DOMAIN} — retrying in {CHECK_INTERVAL_SECONDS // 60} mins...")
+            return f"❌ {DOMAIN} is still taken."
     except Exception as e:
-        print(f"⚠️ Error: {e}")
-    
-    time.sleep(CHECK_INTERVAL_SECONDS)
+        return f"⚠️ Error: {str(e)}"
+
+
+if __name__ == "__main__":
+    app.run(debug=False)
